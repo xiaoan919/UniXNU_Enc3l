@@ -113,7 +113,13 @@ def resolve(ctx, modules):
             if path.is_dir() and any(path.iterdir()):
                 module = Module(kind, identifier, path, 'base')
             else:
-                source = {'name': identifier, 'kind': kind, 'git': spec['repository'], 'commit': spec['revision']}
+                # Carry the component's path into the source. fetch() clones the
+                # repository root when a source has no path, and patch series
+                # reference component:ID/patches/... relative to the component
+                # directory. Without this, component:NativePrelink/patches/x.patch
+                # resolves to <repo-root>/patches/x.patch and the series fails.
+                source = {'name': identifier, 'kind': kind, 'git': spec['repository'],
+                          'commit': spec['revision'], 'path': spec.get('path', '')}
                 module = Module(kind, identifier, None, 'git', source)
         if module.name != identifier:
             original = module
