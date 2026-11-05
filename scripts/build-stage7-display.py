@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import struct
 import subprocess
@@ -221,7 +222,14 @@ sources=[ROOT/'drivers/NativeMobileDisplay/NativeLegacyDisplay.cpp',
          ROOT/'drivers/NativeKeyStoreEvents/NativeKeyStoreEvents.cpp',
          ROOT/'drivers/Stage7Probe/Stage7Probe.cpp',Path(__file__),
          ROOT/'scripts/build-stage7-driver.py',ROOT/'scripts/original_stage7.py',ROOT/'scripts/audit-stage7-display.py']
-sources += [ROOT/'scripts/build-pagani-peripherals.py', ROOT/'kits/oneplus13t/PaganiPeripherals.h',
+# PaganiPeripherals.h ships with the device repository under package/, not with a
+# kits/<board> tree, so prefer the device copy and keep the old path as a fallback
+# for a tree that vendors it.
+_device = Path(os.environ['UNIXNU_DEVICE']) if os.environ.get('UNIXNU_DEVICE') else None
+_board_header = (_device / 'package/PaganiPeripherals.h'
+                 if _device and (_device / 'package/PaganiPeripherals.h').is_file()
+                 else ROOT/'kits/oneplus13t/PaganiPeripherals.h')
+sources += [ROOT/'scripts/build-pagani-peripherals.py', _board_header,
             ROOT/'kits/Sm8750Platform/PeripheralIO.h', ROOT/'drivers/QcomGeniSpi/GeniSpi.c', ROOT/'drivers/QcomGeniSpi/GeniSpi.h']
 for folder in ('PaganiInput','PaganiPanel'):
     sources += sorted(p for p in (ROOT/'drivers'/folder).iterdir() if p.suffix in ('.cpp','.c','.h'))
