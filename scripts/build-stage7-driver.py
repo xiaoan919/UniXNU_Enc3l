@@ -52,8 +52,13 @@ command += ['-mgeneral-regs-only', '-Wall', '-Wextra', '-Werror', '-Wno-unused-p
             '-Wno-c99-designator', '-Wno-reorder-init-list', '-Wno-deprecated-enum-enum-conversion',
             '-I', str(directory), '-I', str(root / '.cache/xnu-work/osfmk')]
 if component.startswith('Pagani'):
-    command += ['-I', str(root / 'kits/Sm8750Platform'), '-I', str(root / 'kits/oneplus13t'),
-                '-I', str(root / 'drivers/QcomGeniSpi')]
+    # PaganiPeripherals.h lives in the device repository's package directory and the
+    # Pagani drivers include it as <PaganiPeripherals.h>. Without this entry the
+    # compile stops at Buttons.h: fatal error: 'PaganiPeripherals.h' file not found,
+    # component-NativeMobileDisplay never finishes, build_archives raises, and the
+    # real kernel build never runs.
+    command += ['-I', str(root / 'package'), '-I', str(root / 'kits/Sm8750Platform'),
+                '-I', str(root / 'kits/oneplus13t'), '-I', str(root / 'drivers/QcomGeniSpi')]
 subprocess.run(command, cwd=record['directory'], check=True)
 data = obj.read_bytes()
 assert struct.unpack_from('<4I', data) == (0xfeedfacf, 0x100000c, 0, 1), 'Require ARM64 Mach-O object'
