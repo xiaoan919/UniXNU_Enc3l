@@ -222,10 +222,25 @@ sources=[ROOT/'drivers/NativeMobileDisplay/NativeLegacyDisplay.cpp',
          ROOT/'drivers/NativeKeyStoreEvents/NativeKeyStoreEvents.cpp',
          ROOT/'drivers/Stage7Probe/Stage7Probe.cpp',Path(__file__),
          ROOT/'scripts/build-stage7-driver.py',ROOT/'scripts/original_stage7.py',ROOT/'scripts/audit-stage7-display.py']
+_device = Path(os.environ['UNIXNU_DEVICE']) if os.environ.get('UNIXNU_DEVICE') else None
+
+# Report keys stay stable for sources inside the tree; the board header comes from
+# the device repository, which is not under ROOT, so name it by its device-relative
+# path instead of raising ValueError from relative_to().
+def _label(p):
+    p = Path(p)
+    for base, prefix in ((ROOT, ''), (_device, 'device/')):
+        if base is None:
+            continue
+        try:
+            return prefix + str(p.relative_to(base))
+        except ValueError:
+            continue
+    return str(p)
+
 # PaganiPeripherals.h ships with the device repository under package/, not with a
 # kits/<board> tree, so prefer the device copy and keep the old path as a fallback
 # for a tree that vendors it.
-_device = Path(os.environ['UNIXNU_DEVICE']) if os.environ.get('UNIXNU_DEVICE') else None
 _board_header = (_device / 'package/PaganiPeripherals.h'
                  if _device and (_device / 'package/PaganiPeripherals.h').is_file()
                  else ROOT/'kits/oneplus13t/PaganiPeripherals.h')
@@ -234,7 +249,7 @@ sources += [ROOT/'scripts/build-pagani-peripherals.py', _board_header,
 for folder in ('PaganiInput','PaganiPanel'):
     sources += sorted(p for p in (ROOT/'drivers'/folder).iterdir() if p.suffix in ('.cpp','.c','.h'))
 (OUT/'build-report.json').write_text(json.dumps(dict(original_sha256=original.sha256,
-    archive_sha256=sha(archive),source_sha256={str(p.relative_to(ROOT)):sha(p) for p in sources},
+    archive_sha256=sha(archive),source_sha256={_label(p):sha(p) for p in sources},
     virtual_entries=358,owned_entries=owned,bindings={n:hex(v) for n,v in bindings.items()},
     original_instructions_modified=False,runtime_qualified=False),indent=2)+'\n')
 print('PASS: original display ABI and compiled archive; runtime remains unqualified')
