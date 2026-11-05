@@ -172,6 +172,11 @@ def build(ctx, modules):
         generated.mkdir(parents=True, exist_ok=True)
         env['UNIXNU_GENERATED_DIR'] = str(generated)
     env['JOBS'] = str(ctx.jobs)
+    # The board's own headers (package/PaganiPeripherals.h) live in the device
+    # repository, not in the XNU tree, and the driver compiles need them on the
+    # include path. Pass the device root explicitly rather than guessing it from
+    # the script's own location, which is inside the tree.
+    env['UNIXNU_DEVICE'] = str(ctx.device)
     record = ctx.tree / 'build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/startup.o.json'
     if not record.is_file():
         # The archive builders and the boot progress layer read compile records of the XNU build, which only an earlier

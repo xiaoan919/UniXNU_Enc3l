@@ -2,6 +2,7 @@
 """Compile Stage 7 components with the kernel's own ABI and compiler flags."""
 import argparse
 import json
+import os
 import runpy
 from pathlib import Path
 import struct
@@ -57,7 +58,12 @@ if component.startswith('Pagani'):
     # compile stops at Buttons.h: fatal error: 'PaganiPeripherals.h' file not found,
     # component-NativeMobileDisplay never finishes, build_archives raises, and the
     # real kernel build never runs.
-    command += ['-I', str(root / 'package'), '-I', str(root / 'kits/Sm8750Platform'),
+    # PaganiPeripherals.h lives in the device repository's package/ directory, which
+    # is not inside the XNU tree; the driver is pointed at it through UNIXNU_DEVICE.
+    # Falling back to root/'package' keeps this working for a tree that vendors it.
+    device = Path(os.environ['UNIXNU_DEVICE']) if os.environ.get('UNIXNU_DEVICE') else None
+    package = (device / 'package') if device and (device / 'package').is_dir() else (root / 'package')
+    command += ['-I', str(package), '-I', str(root / 'kits/Sm8750Platform'),
                 '-I', str(root / 'kits/oneplus13t'), '-I', str(root / 'drivers/QcomGeniSpi')]
 subprocess.run(command, cwd=record['directory'], check=True)
 data = obj.read_bytes()
