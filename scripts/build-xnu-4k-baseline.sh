@@ -655,14 +655,23 @@ PY_MOBILE_DISPLAY
   if [ "$NATIVE_LEGACY_DISPLAY" = 1 ]; then
     LEGACY_DISPLAY_ARCHIVE=$ROOT/build/native-legacy-display/libNativeLegacyDisplay.late.a
     test -f "$LEGACY_DISPLAY_ARCHIVE"
-    python3 - "$LEGACY_DISPLAY_ARCHIVE" "$ROOT" <<'PY_LEGACY_DISPLAY'
+    python3 - "$LEGACY_DISPLAY_ARCHIVE" "$ROOT" "${UNIXNU_DEVICE:-}" <<'PY_LEGACY_DISPLAY'
 import hashlib, json, sys
 from pathlib import Path
 archive=Path(sys.argv[1]);root=Path(sys.argv[2]);report=json.loads(archive.with_name('build-report.json').read_text())
+# Source keys are tree-relative, except the board header, which lives in the device
+# repository and is reported as device/<relative path>. Resolve each against its root.
+device=Path(sys.argv[3]) if len(sys.argv)>3 and sys.argv[3] else None
+def source_root(name):
+    return device if device and name.startswith('device/') else root
 if hashlib.sha256(archive.read_bytes()).hexdigest()!=report['archive_sha256']:
     raise SystemExit('Rebuild and qualify the exact owned Legacy archive before linking')
 for name,digest in report['source_sha256'].items():
-    if hashlib.sha256((root/name).read_bytes()).hexdigest()!=digest:
+    if name.startswith('device/'):
+        path = device / name[len('device/'):]
+    else:
+        path = root / name
+    if hashlib.sha256(path.read_bytes()).hexdigest()!=digest:
         raise SystemExit('Rebuild the owned Legacy archive after changing '+name)
 PY_LEGACY_DISPLAY
     KERNEL_EXTRA_ARCHIVES="$KERNEL_EXTRA_ARCHIVES -Wl,-force_load,$LEGACY_DISPLAY_ARCHIVE"
