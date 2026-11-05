@@ -8,6 +8,7 @@ The board describes the image in [ipsw]: url (the default remote source), produc
 chip_id, board_id, and the components the steps use.
 """
 import hashlib
+import http.client
 import io
 import json
 import platform
@@ -68,7 +69,11 @@ class RangeFile(io.RawIOBase):
                         raise OSError('short range response')
                     self.cache[index] = data
                     break
-                except (OSError, urllib.error.URLError):
+                # http.client.IncompleteRead is an HTTPException, not an OSError, so a
+                # connection dropped mid-body escaped the retry loop entirely and took the
+                # whole step down. It happens against the Apple CDN: one run read 3007 of
+                # 8388608 bytes and aborted. Retry it like any other transport fault.
+                except (OSError, EOFError, urllib.error.URLError, http.client.HTTPException):
                     if attempt == self.retries - 1:
                         raise
                     time.sleep(2 ** attempt)
