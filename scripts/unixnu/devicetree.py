@@ -300,11 +300,18 @@ def generate(dtb, config, *, unique_chip_id=None, data=False, trust=False, addon
     payload, platform = config.get('payload', {}), config.get('adt', {})
     options = payload.get('adt', {})
     memory = [entry for entry in root.children if entry.strings('device_type') == ['memory'] and entry.enabled()]
-    if len(memory) != 1 or len(registers(memory[0])) != 1:
-        raise Error('ADT handoff requires one contiguous DRAM range')
+    if not memory:
+        raise Error('ADT handoff requires a memory node in the hardware DTS')
+    # A board may describe DRAM as several non-contiguous windows (the Ace 6 has
+    # two: 0x9_80000000 + 6 GiB and 0x8_c0000000 + 3 GiB). DarwinBoot is only
+    # handed the first window; owned_memory_size below caps what it may use, so a
+    # second window does not make the handoff ambiguous.
     dram_base, dram_size = registers(memory[0])[0]
-    if payload.get('dram_size') is not None and int(str(payload['dram_size']), 0) != dram_size:
-        raise Error('payload.dram_size differs from the hardware DTS')
+    # payload.dram_size is the board's physical DRAM total and may span several
+    # windows; dram_size here is only the first one. Require the first window not to
+    # exceed the declared total instead of demanding they be equal.
+    if payload.get('dram_size') is not None and int(str(payload['dram_size']), 0) < dram_size:
+        raise Error('payload.dram_size is smaller than the first DRAM window')
     chosen = [('random-seed', os.urandom(64)), ('dram-base', struct.pack('<Q', dram_base)),
               ('dram-size', struct.pack('<Q', dram_size)), *empty_nvram_proxy()]
     if unique_chip_id:
